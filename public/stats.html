@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика посетителей Paranoya</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background-color: #e9f7fe;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007acc;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .error {
+            color: red;
+            text-align: center;
+            padding: 20px;
+        }
+        .geo-info {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .session-detail-block {
+            margin: 20px 0;
+        }
+        .session-detail-block h4 {
+            color: #007acc;
+            margin-top: 0;
+        }
+        .session-detail-block h5 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        #session-details {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Статистика посетителей сайта Paranoya</h1>
+        
+        <div id="loading" class="loading">Загрузка данных...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="content" style="display: none;">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-visits">0</div>
+                    <div class="stat-label">Всего визитов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="unique-sessions">0</div>
+                    <div class="stat-label">Уникальных сессий</div>
+                </div>
+            </div>
+            
+            <h2>Сессии посетителей</h2>
+            <table id="sessions-table">
+                <thead>
+                    <tr>
+                        <th>ID Сессии</th>
+                        <th>IP Адрес</th>
+                        <th>Количество визитов</th>
+                        <th>Геолокация</th>
+                    </tr>
+                </thead>
+                <tbody id="sessions-body">
+                </tbody>
+            </table>
+            
+            <h3>Детали визитов по сессиям</h3>
+            <div id="session-details"></div>
+        </div>
+    </div>
+
+    <script>
+    // Функция для форматирования даты
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleString('ru-RU');
+    }
+
+    // Функция для отображения геолокации
+    function formatGeoLocation(geo) {
+        if (!geo || !geo.city) {
+            return 'Нет данных';
+        }
+        return `${geo.city}, ${geo.country || ''}`;
+    }
+
+    // Функция для отображения деталей сессии
+    function showSessionDetails(sessionId) {
+        const detailsDiv = document.getElementById('session-details');
+        const session = window.sessionsData.find(s => s.sessionId === sessionId);
+        
+        if (!session) return;
+        
+        let detailsHTML = `
+            <div class="session-detail-block" style="background-color: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007acc;">
+                <h4>Детали сессии: ${sessionId || 'Без сессии'}</h4>
+                <p><strong>IP:</strong> ${session.ip}</p>
+                <p><strong>Всего визитов:</strong> ${session.totalVisits}</p>
+                <p><strong>Геолокация:</strong> ${formatGeoLocation(session.geolocation)}</p>
+                <h5>Все визиты в этой сессии:</h5>
+                <table style="width: 100%; font-size: 0.9em;">
+                    <thead>
+                        <tr>
+                            <th>Время визита</th>
+                            <th>Геолокация</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        session.visits.forEach(visit => {
+            detailsHTML += `
+                <tr>
+                    <td>${formatDate(visit.visitTime)}</td>
+                    <td>${formatGeoLocation(visit.geolocation)}</td>
+                </tr>
+            `;
+        });
+        
+        detailsHTML += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        detailsDiv.innerHTML = detailsHTML;
+    }
+
+    // Загрузка данных статистики
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/stats');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            // Сохранить данные глобально для использования в деталях
+            window.sessionsData = data.sessions;
+            
+            // Отображение статистики
+            document.getElementById('total-visits').textContent = data.totalRecords;
+            document.getElementById('unique-sessions').textContent = data.uniqueSessions;
+            
+            // Отображение таблицы сессий
+            const tbody = document.getElementById('sessions-body');
+            tbody.innerHTML = '';
+            
+            data.sessions.forEach(session => {
+                const row = document.createElement('tr');
+                row.style.cursor = 'pointer';
+                row.onclick = () => showSessionDetails(session.sessionId);
+                row.innerHTML = `
+                    <td>${session.sessionId ? session.sessionId.substring(0, 8) + '...' : 'Без сессии'}</td>
+                    <td>${session.ip}</td>
+                    <td>${session.totalVisits}</td>
+                    <td class="geo-info">${formatGeoLocation(session.geolocation)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // Скрыть загрузку и показать контент
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+            
+        } catch (error) {
+            console.error('Ошибка загрузки данных:', error);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').textContent = 'Ошибка загрузки данных статистики: ' + error.message;
+            document.getElementById('error').style.display = 'block';
+        }
+    }
+
+    // Загрузка данных при загрузке страницы
+    document.addEventListener('DOMContentLoaded', loadStats);
+    </script>
+</body>
+</html>

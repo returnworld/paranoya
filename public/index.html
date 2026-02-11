@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/BarneyWhiteman/p5.filterShader@0.0.2/p5.filterShader.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="utf-8" />
+
+  </head>
+  <body>
+    <main>
+    </main>
+    <script>
+      // Логирование визита при загрузке страницы
+      document.addEventListener('DOMContentLoaded', function() {
+        fetch('/api/log-visit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            timestamp: new Date().toISOString(),
+            page: 'index',
+            userAgent: navigator.userAgent
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('Visit logged successfully:', data);
+        })
+        .catch(error => {
+          console.error('Error logging visit:', error);
+        });
+      });
+    </script>
+    <script src="sketch.js"></script>
+  </body>
+</html>
