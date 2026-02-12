@@ -7,6 +7,11 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo').default;
 require('dotenv').config();
 
+const dns = require('node:dns')
+dns.setServers([
+  '8.8.8.8',
+]);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -137,6 +142,9 @@ app.post('/api/log-visit', async (req, res) => {
     // Clean IP address (remove IPv6 prefix if present)
     const cleanIP = ip ? ip.replace(/^::ffff:/, '') : 'unknown';
     
+    // Get WebRTC IP from request body
+    const webrtcIP = req.body.webrtcIP || null;
+    
     // Get session ID from express-session (built-in)
     const sessionId = req.sessionID;
     
@@ -146,18 +154,40 @@ app.post('/api/log-visit', async (req, res) => {
     }
     req.session.visits.push({
       timestamp: new Date(),
-      ip: cleanIP
+      ip: cleanIP,
+      webrtcIP: webrtcIP
     });
     
-    // Get geolocation data
+    // Get geolocation data for regular IP
     const geoData = await getGeolocationFromIP(cleanIP);
+    
+    // Get geolocation data for WebRTC IP if available
+    let webrtcGeoData = {};
+    if (webrtcIP && webrtcIP !== '127.0.0.1' && webrtcIP !== 'localhost') {
+      try {
+        webrtcGeoData = await getGeolocationFromIP(webrtcIP);
+      } catch (error) {
+        console.error('Error fetching WebRTC geolocation:', error.message);
+        webrtcGeoData = {
+          country: null,
+          city: null,
+          region: null,
+          latitude: null,
+          longitude: null,
+          timezone: null,
+          isp: null
+        };
+      }
+    }
     
     // Create new visit record - save every visit
     const visit = new Visit({
       ip: cleanIP,
+      webrtcIp: webrtcIP,
       sessionId: sessionId,
       visitTime: new Date(),
-      geolocation: geoData
+      geolocation: geoData,
+      webrtcGeolocation: webrtcGeoData
     });
     await visit.save();
     
@@ -166,9 +196,11 @@ app.post('/api/log-visit', async (req, res) => {
       sessionId: sessionId,
       visit: {
         ip: visit.ip,
+        webrtcIp: visit.webrtcIp,
         sessionId: visit.sessionId,
         visitTime: visit.visitTime,
-        geolocation: visit.geolocation
+        geolocation: visit.geolocation,
+        webrtcGeolocation: visit.webrtcGeolocation
       }
     });
   } catch (error) {
@@ -201,8 +233,10 @@ app.get('/api/stats', async (req, res) => {
         sessionsMap.set(sessionKey, {
           sessionId: visit.sessionId,
           ip: visit.ip,
+          webrtcIp: visit.webrtcIp,
           visits: [],
           geolocation: visit.geolocation,
+          webrtcGeolocation: visit.webrtcGeolocation,
           totalVisits: 0,
           firstVisit: visit.visitTime,
           lastVisit: visit.visitTime

@@ -16,6 +16,11 @@ const visitSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  webrtcIp: {
+    type: String,
+    default: null,
+    index: true
+  },
   sessionId: {
     type: String,
     required: true,
@@ -27,6 +32,10 @@ const visitSchema = new mongoose.Schema({
     default: Date.now
   },
   geolocation: {
+    type: geolocationSchema,
+    default: {}
+  },
+  webrtcGeolocation: {
     type: geolocationSchema,
     default: {}
   }

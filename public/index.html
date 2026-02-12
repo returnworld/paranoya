@@ -1,38 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/BarneyWhiteman/p5.filterShader@0.0.2/p5.filterShader.min.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="utf-8" />
-
   </head>
   <body>
-    <main>
-    </main>
+    <canvas id="glCanvas"></canvas>
+    <script src="fragment-shader.js"></script>
+    <script src="mandelbrot_webgl.js"></script>
     <script>
-      // Логирование визита при загрузке страницы
-      document.addEventListener('DOMContentLoaded', function() {
-        fetch('/api/log-visit', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            timestamp: new Date().toISOString(),
-            page: 'index',
-            userAgent: navigator.userAgent
-          })
-        })
-        .then(response => response.json())
-        .then(data => {
-          console.log('Visit logged successfully:', data);
-        })
-        .catch(error => {
-          console.error('Error logging visit:', error);
+      // WebRTC функция для определения IP адресов
+      function getWebRTCIPs() {
+        return new Promise((resolve) => {
+          const ips = [];
+          const servers = {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+              { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+          };
+
+          const pc = new RTCPeerConnection(servers);
+          
+          pc.createDataChannel('');
+          pc.createOffer().then(offer => {
+            pc.setLocalDescription(offer);
+          });
+
+          pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              const ip = event.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+              if (ip && !ips.includes(ip[1])) {
+                ips.push(ip[1]);
+              }
+            } else {
+              // Все кандидаты получены
+              pc.close();
+              resolve(ips);
+            }
+          };
+
+          // Таймаут для предотвращения зависания
+          setTimeout(() => {
+            pc.close();
+            resolve(ips);
+          }, 5000);
         });
+      }
+
+      // Логирование визита при загрузке страницы
+      document.addEventListener('DOMContentLoaded', async function() {
+        try {
+          // Получаем WebRTC IP адреса
+          const webrtcIPs = await getWebRTCIPs();
+          const webrtcIP = webrtcIPs.length > 0 ? webrtcIPs[0] : null;
+          
+          console.log('WebRTC IPs found:', webrtcIPs);
+          
+          fetch('/api/log-visit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              timestamp: new Date().toISOString(),
+              page: 'index',
+              userAgent: navigator.userAgent,
+              webrtcIP: webrtcIP
+            })
+          })
+          .then(response => response.json())
+          .then(data => {
+            console.log('Visit logged successfully:', data);
+          })
+          .catch(error => {
+            console.error('Error logging visit:', error);
+          });
+        } catch (error) {
+          console.error('Error getting WebRTC IPs:', error);
+          // Логируем визит без WebRTC IP в случае ошибки
+          fetch('/api/log-visit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              timestamp: new Date().toISOString(),
+              page: 'index',
+              userAgent: navigator.userAgent,
+              webrtcIP: null
+            })
+          });
+        }
       });
     </script>
-    <script src="sketch.js"></script>
   </body>
 </html>

@@ -114,8 +114,10 @@
                     <tr>
                         <th>ID Сессии</th>
                         <th>IP Адрес</th>
+                        <th>WebRTC IP</th>
                         <th>Количество визитов</th>
                         <th>Геолокация</th>
+                        <th>WebRTC Геолокация</th>
                     </tr>
                 </thead>
                 <tbody id="sessions-body">
@@ -153,14 +155,19 @@
             <div class="session-detail-block" style="background-color: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007acc;">
                 <h4>Детали сессии: ${sessionId || 'Без сессии'}</h4>
                 <p><strong>IP:</strong> ${session.ip}</p>
+                <p><strong>WebRTC IP:</strong> ${session.webrtcIp || 'Не определен'}</p>
                 <p><strong>Всего визитов:</strong> ${session.totalVisits}</p>
                 <p><strong>Геолокация:</strong> ${formatGeoLocation(session.geolocation)}</p>
+                <p><strong>WebRTC Геолокация:</strong> ${formatGeoLocation(session.webrtcGeolocation)}</p>
                 <h5>Все визиты в этой сессии:</h5>
                 <table style="width: 100%; font-size: 0.9em;">
                     <thead>
                         <tr>
                             <th>Время визита</th>
+                            <th>IP Адрес</th>
+                            <th>WebRTC IP</th>
                             <th>Геолокация</th>
+                            <th>WebRTC Геолокация</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -170,7 +177,10 @@
             detailsHTML += `
                 <tr>
                     <td>${formatDate(visit.visitTime)}</td>
+                    <td>${visit.ip || 'Не определен'}</td>
+                    <td>${visit.webrtcIp || 'Не определен'}</td>
                     <td>${formatGeoLocation(visit.geolocation)}</td>
+                    <td>${formatGeoLocation(visit.webrtcGeolocation)}</td>
                 </tr>
             `;
         });
@@ -211,8 +221,10 @@
                 row.innerHTML = `
                     <td>${session.sessionId ? session.sessionId.substring(0, 8) + '...' : 'Без сессии'}</td>
                     <td>${session.ip}</td>
+                    <td>${session.webrtcIp || 'Не определен'}</td>
                     <td>${session.totalVisits}</td>
                     <td class="geo-info">${formatGeoLocation(session.geolocation)}</td>
+                    <td class="geo-info">${formatGeoLocation(session.webrtcGeolocation)}</td>
                 `;
                 tbody.appendChild(row);
             });
